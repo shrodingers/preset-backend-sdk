@@ -52,7 +52,8 @@ def create_dataset(
     else:
         engine = create_engine(url)
         quote = engine.dialect.identifier_preparer.quote
-        source = ".".join(quote(model[key]) for key in ("database", "schema", "name"))
+        source = ".".join(quote(model[key])
+                          for key in ("database", "schema", "name"))
         kwargs = {
             "database": database["id"],
             "schema": model["schema"],
@@ -107,7 +108,18 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
             },
         }
 
-        dataset_metrics = []
+        dataset_info = client.get_dataset(dataset["id"])
+        existing_metrics = dataset_info["result"]["metrics"]
+        print(existing_metrics)
+        metric_keys = ['d3format',
+                       'description',
+                       'expression',
+                       'extra',
+                       'metric_name',
+                       'metric_type',
+                       'verbose_name',
+                       'warning_text']
+        dataset_metrics = [{key: value for key, value in metric.items() if key in metric_keys} for metric in existing_metrics if metric["metric_name"] != 'count'] if existing_metrics else []
         model_metrics = {
             metric["name"]: metric
             for metric in metrics
@@ -146,17 +158,20 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
             update = {
                 "metrics": dataset_metrics,
             }
-            client.update_dataset(dataset["id"], override_columns=False, **update)
+            client.update_dataset(
+                dataset["id"], override_columns=False, **update)
 
         # update column descriptions
         update = {
             "columns": [
-                {"column_name": name, "description": column.get("description", "")}
+                {"column_name": name, "description": column.get("description", ""), "is_dttm": column["data_type"] == "timestamp" if not column.get(
+                    "meta", {}).get("superset", {}).get("is_dttm", False) else False}
                 for name, column in model.get("columns", {}).items()
             ],
         }
         if update["columns"]:
-            client.update_dataset(dataset["id"], override_columns=True, **update)
+            client.update_dataset(
+                dataset["id"], override_columns=True, **update)
 
         datasets.append(dataset)
 
