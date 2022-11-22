@@ -560,12 +560,8 @@ class MetricSchema(PostelSchema, VersionnedSchema):
     name = fields.String()
     label = fields.String()
     unique_id = fields.String(data_key="uniqueId")
-    if super().version < "1.3.0":
-        sql = fields.String()
-        type = fields.String()
-    else:
-        expression = fields.String()
-        calculation_method = fields.String()
+    expression = fields.String()
+    calculation_method = fields.String()
 
 
 

@@ -23,14 +23,8 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
 
     metric = metrics[metric_name]
 
-    version = metric["version"]
-
-    if version < "1.3.0":
-        calculation_method = metric["type"]
-        expression = metric["sql"]
-    else:
-        calculation_method = metric["calculation_method"]
-        expression = metric["expression"]
+    calculation_method = metric["calculation_method"]
+    expression = metric["expression"]
 
     if metric.get("filters"):
         expression = apply_filters(expression, metric["filters"])

@@ -124,7 +124,7 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     with open(manifest, encoding="utf-8") as input_:
         configs = yaml.load(input_, Loader=yaml.SafeLoader)
 
-    version = configs["metadata"]["version"]
+    version = config["metadata"]
     model_schema = ModelSchema()
     models = []
     for config in configs["nodes"].values():
@@ -152,6 +152,7 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
             # conform to the same schema that dbt Cloud uses for metrics
             config["dependsOn"] = config["depends_on"]["nodes"]
             config["uniqueID"] = config["unique_id"]
+            config["version"] = version
             metrics.append(metric_schema.load(config, unknown=EXCLUDE))
 
         try:
@@ -177,24 +178,6 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
             disallow_edits,
             external_url_prefix,
         )
-
-    metrics = []
-    metric_schema = MetricSchema()
-    for config in configs["metrics"].values():
-        # conform to the same schema that dbt Cloud uses for metrics
-        config["dependsOn"] = config["depends_on"]["nodes"]
-        config["uniqueID"] = config["unique_id"]
-        config["version"] = version
-        metrics.append(metric_schema.load(config, unknown=EXCLUDE))
-
-    datasets = sync_datasets(
-        client,
-        models,
-        metrics,
-        database,
-        disallow_edits,
-        external_url_prefix,
-    )
     if exposures:
         exposures = os.path.expanduser(exposures)
         sync_exposures(client, Path(exposures), datasets, model_map)
