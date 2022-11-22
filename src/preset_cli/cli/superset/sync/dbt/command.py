@@ -18,7 +18,7 @@ from preset_cli.api.clients.superset import SupersetClient
 from preset_cli.auth.token import TokenAuth
 from preset_cli.cli.superset.sync.dbt.databases import sync_database
 from preset_cli.cli.superset.sync.dbt.datasets import sync_datasets
-from preset_cli.cli.superset.sync.dbt.exposures import sync_exposures
+from preset_cli.cli.superset.sync.dbt.exposures import ModelKey, sync_exposures
 from preset_cli.cli.superset.sync.dbt.lib import apply_select
 from preset_cli.exceptions import DatabaseNotFoundError
 
@@ -62,6 +62,12 @@ from preset_cli.exceptions import DatabaseNotFoundError
     help="Models to exclude",
     multiple=True,
 )
+@click.option(
+    "--exposures-only",
+    is_flag=True,
+    default=False,
+    help="Do not sync models to datasets and only fetch exposures instead",
+)
 @click.pass_context
 def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     ctx: click.core.Context,
@@ -75,6 +81,7 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     import_db: bool = False,
     disallow_edits: bool = True,
     external_url_prefix: str = "",
+    exposures_only: bool = False,
 ) -> None:
     """
     Sync models/metrics from dbt Core to Superset and charts/dashboards to dbt exposures.
@@ -114,21 +121,6 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
         )
         sys.exit(1)
 
-    try:
-        database = sync_database(
-            client,
-            Path(profiles),
-            project,
-            profile,
-            target,
-            import_db,
-            disallow_edits,
-            external_url_prefix,
-        )
-    except DatabaseNotFoundError:
-        click.echo("No database was found, pass --import-db to create")
-        return
-
     with open(manifest, encoding="utf-8") as input_:
         configs = yaml.load(input_, Loader=yaml.SafeLoader)
 
@@ -142,6 +134,49 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
             config["children"] = configs["child_map"][unique_id]
             models.append(model_schema.load(config, unknown=EXCLUDE))
     models = apply_select(models, select, exclude)
+    model_map = {
+        ModelKey(model["schema"], model["name"]): f'ref({model["name"]})'
+        for model in models
+    }
+
+    if exposures_only:
+        datasets = [
+            dataset
+            for dataset in client.get_datasets()
+            if ModelKey(dataset["schema"], dataset["table_name"]) in model_map
+        ]
+    else:
+        metrics = []
+        metric_schema = MetricSchema()
+        for config in configs["metrics"].values():
+            # conform to the same schema that dbt Cloud uses for metrics
+            config["dependsOn"] = config["depends_on"]["nodes"]
+            config["uniqueID"] = config["unique_id"]
+            metrics.append(metric_schema.load(config, unknown=EXCLUDE))
+
+        try:
+            database = sync_database(
+                client,
+                Path(profiles),
+                project,
+                profile,
+                target,
+                import_db,
+                disallow_edits,
+                external_url_prefix,
+            )
+        except DatabaseNotFoundError:
+            click.echo("No database was found, pass --import-db to create")
+            return
+
+        datasets = sync_datasets(
+            client,
+            models,
+            metrics,
+            database,
+            disallow_edits,
+            external_url_prefix,
+        )
 
     metrics = []
     metric_schema = MetricSchema()
@@ -162,17 +197,107 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     )
     if exposures:
         exposures = os.path.expanduser(exposures)
-        sync_exposures(client, Path(exposures), datasets)
+        sync_exposures(client, Path(exposures), datasets, model_map)
+
+
+def get_account_id(client: DBTClient) -> int:
+    """
+    Prompt used for an account ID.
+    """
+    accounts = client.get_accounts()
+    if not accounts:
+        click.echo(click.style("No accounts available", fg="bright_red"))
+        sys.exit(1)
+    if len(accounts) == 1:
+        return accounts[0]["id"]
+    click.echo("Choose an account:")
+    for i, account in enumerate(accounts):
+        click.echo(f'({i+1}) {account["name"]}')
+
+    while True:
+        try:
+            choice = int(input("> "))
+        except Exception:  # pylint: disable=broad-except
+            choice = -1
+        if 0 < choice <= len(accounts):
+            return accounts[choice - 1]["id"]
+        click.echo("Invalid choice")
+
+
+def get_project_id(client: DBTClient, account_id: Optional[int] = None) -> int:
+    """
+    Prompt user for a project id.
+    """
+    if account_id is None:
+        account_id = get_account_id(client)
+
+    projects = client.get_projects(account_id)
+    if not projects:
+        click.echo(click.style("No project available", fg="bright_red"))
+        sys.exit(1)
+    if len(projects) == 1:
+        return projects[0]["id"]
+    click.echo("Choose a project:")
+    for i, project in enumerate(projects):
+        click.echo(f'({i+1}) {project["name"]}')
+
+    while True:
+        try:
+            choice = int(input("> "))
+        except Exception:  # pylint: disable=broad-except
+            choice = -1
+        if 0 < choice <= len(projects):
+            return projects[choice - 1]["id"]
+        click.echo("Invalid choice")
+
+
+def get_job_id(
+    client: DBTClient,
+    account_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+) -> int:
+    """
+    Prompt users for a job ID.
+    """
+    if account_id is None:
+        account_id = get_account_id(client)
+    if project_id is None:
+        project_id = get_project_id(client, account_id)
+
+    jobs = client.get_jobs(account_id, project_id)
+    if not jobs:
+        click.echo(click.style("No jobs available", fg="bright_red"))
+        sys.exit(1)
+    if len(jobs) == 1:
+        return jobs[0]["id"]
+
+    click.echo("Choose a job:")
+    for i, job in enumerate(jobs):
+        click.echo(f'({i+1}) {job["name"]}')
+
+    while True:
+        try:
+            choice = int(input("> "))
+        except Exception:  # pylint: disable=broad-except
+            choice = -1
+        if 0 < choice <= len(jobs):
+            return jobs[choice - 1]["id"]
+        click.echo("Invalid choice")
 
 
 @click.command()
 @click.argument("token")
-@click.argument("job_id", type=click.INT)
+@click.argument("job_id", type=click.INT, required=False, default=None)
 @click.option(
     "--disallow-edits",
     is_flag=True,
     default=False,
     help="Mark resources as managed externally to prevent edits",
+)
+@click.option(
+    "--exposures",
+    help="Path to file where exposures will be written",
+    type=click.Path(exists=False),
 )
 @click.option("--external-url-prefix", default="", help="Base URL for resources")
 @click.option(
@@ -187,15 +312,23 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     help="Models to exclude",
     multiple=True,
 )
+@click.option(
+    "--exposures-only",
+    is_flag=True,
+    default=False,
+    help="Do not sync models to datasets and only fetch exposures instead",
+)
 @click.pass_context
 def dbt_cloud(  # pylint: disable=too-many-arguments, too-many-locals
     ctx: click.core.Context,
     token: str,
-    job_id: int,
     select: Tuple[str, ...],
     exclude: Tuple[str, ...],
+    exposures: Optional[str] = None,
+    job_id: Optional[int] = None,
     disallow_edits: bool = True,
     external_url_prefix: str = "",
+    exposures_only: bool = False,
 ) -> None:
     """
     Sync models/metrics from dbt Cloud to Superset.
@@ -207,6 +340,9 @@ def dbt_cloud(  # pylint: disable=too-many-arguments, too-many-locals
     dbt_auth = TokenAuth(token)
     dbt_client = DBTClient(dbt_auth)
 
+    if job_id is None:
+        job_id = get_job_id(dbt_client)
+
     # with dbt cloud the database must already exist
     database_name = dbt_client.get_database_name(job_id)
     databases = superset_client.get_databases(database_name=database_name)
@@ -216,16 +352,33 @@ def dbt_cloud(  # pylint: disable=too-many-arguments, too-many-locals
     if len(databases) > 1:
         raise Exception("More than one database with the same name found")
 
-    database = databases[0]
+    # need to get the database by itself so the response has the SQLAlchemy URI
+    database = superset_client.get_database(databases[0]["id"])
+
     models = dbt_client.get_models(job_id)
     models = apply_select(models, select, exclude)
+    model_map = {
+        ModelKey(model["schema"], model["name"]): f'ref({model["name"]})'
+        for model in models
+    }
     metrics = dbt_client.get_metrics(job_id)
 
-    sync_datasets(
-        superset_client,
-        models,
-        metrics,
-        database,
-        disallow_edits,
-        external_url_prefix,
-    )
+    if exposures_only:
+        datasets = [
+            dataset
+            for dataset in superset_client.get_datasets()
+            if ModelKey(dataset["schema"], dataset["table_name"]) in model_map
+        ]
+    else:
+        datasets = sync_datasets(
+            superset_client,
+            models,
+            metrics,
+            database,
+            disallow_edits,
+            external_url_prefix,
+        )
+
+    if exposures:
+        exposures = os.path.expanduser(exposures)
+        sync_exposures(superset_client, Path(exposures), datasets, model_map)

@@ -221,7 +221,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         self.baseurl = URL(baseurl)
         self.auth = auth
 
-        self.session = auth.get_session()
+        self.session = auth.session
         self.session.headers.update(auth.get_headers())
         self.session.headers["Referer"] = str(self.baseurl)
         self.session.headers["User-Agent"] = f"Apache Superset Client ({__version__})"
@@ -296,7 +296,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         """
         Run a dimensional query.
         """
-        dataset = self.get_dataset(dataset_id)["result"]
+        dataset = self.get_dataset(dataset_id)
 
         if time_column is None:
             time_columns = [
@@ -394,7 +394,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         response = self.session.get(url)
         validate_response(response)
 
-        resource = response.json()
+        resource = response.json()["result"]
 
         return resource
 
@@ -662,6 +662,8 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         """
         Import a ZIP bundle.
         """
+        key = "bundle" if resource_name == "assets" else "formData"
+        files = {key: form_data}
         url = self.baseurl / "api/v1" / resource_name / "import/"
 
         self.session.headers.update({"Accept": "application/json"})
@@ -669,7 +671,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         _logger.debug("POST %s\n%s", url, json.dumps(data, indent=4))
         response = self.session.post(
             url,
-            files=dict(formData=form_data),
+            files=files,
             data=data,
         )
         validate_response(response)
@@ -697,7 +699,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         Return all users from a Preset workspace.
         """
         # TODO (betodealmeida): remove hardcoded Manager URL
-        client = PresetClient("https://manage.app.preset.io/", self.auth)
+        client = PresetClient("https://api.app.preset.io/", self.auth)
         return client.export_users(self.baseurl)
 
     def _export_users_superset(self) -> Iterator[UserType]:

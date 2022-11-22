@@ -31,7 +31,7 @@ class PostelSchema(Schema):
     """
     Be liberal in what you accept, and conservative in what you send.
 
-    A schema that allows unknown fields. This way if they API returns new fields that
+    A schema that allows unknown fields. This way if the API returns new fields that
     the client is not expecting no errors will be thrown when validating the payload.
     """
 
@@ -587,7 +587,7 @@ class DBTClient:  # pylint: disable=too-few-public-methods
         self.graphql_client = GraphqlClient(endpoint=GRAPHQL_ENDPOINT)
         self.baseurl = REST_ENDPOINT
 
-        self.session = auth.get_session()
+        self.session = auth.session
         self.session.headers.update(auth.get_headers())
         self.session.headers["User-Agent"] = "Preset CLI"
         self.session.headers["X-Client-Version"] = __version__

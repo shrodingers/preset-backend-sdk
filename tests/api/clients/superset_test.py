@@ -695,7 +695,7 @@ def test_get_resource(requests_mock: Mocker) -> None:
     # the payload schema is irrelevant, since it's passed through unmodified
     requests_mock.get(
         "https://superset.example.org/api/v1/database/1",
-        json={"Hello": "world"},
+        json={"result": {"Hello": "world"}},
     )
 
     auth = Auth()
@@ -1332,19 +1332,19 @@ def test_export_users_preset(requests_mock: Mocker) -> None:
     """
     requests_mock.get("https://superset.example.org/users/list/", status_code=404)
     requests_mock.get(
-        "https://manage.app.preset.io/api/v1/teams/",
+        "https://api.app.preset.io/v1/teams",
         json={
             "payload": [{"name": "team1"}],
         },
     )
     requests_mock.get(
-        "https://manage.app.preset.io/api/v1/teams/team1/workspaces/",
+        "https://api.app.preset.io/v1/teams/team1/workspaces",
         json={
             "payload": [{"id": 1, "hostname": "superset.example.org"}],
         },
     )
     requests_mock.get(
-        "https://manage.app.preset.io/api/v1/teams/team1/workspaces/1/memberships",
+        "https://api.app.preset.io/v1/teams/team1/workspaces/1/memberships",
         json={
             "payload": [
                 {
@@ -1875,7 +1875,7 @@ def test_get_uuids(requests_mock: Mocker) -> None:
             with bundle.open("metadata.yaml", "w") as output:
                 output.write(b"Hello!")
             with bundle.open(name, "w") as output:
-                output.write(yaml.dump({"uuid": uuid}).encode())
+                output.write(yaml.dump({"uuid": uuid}).encode())  # type: ignore
         buf.seek(0)
 
         requests_mock.get(
