@@ -109,7 +109,7 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
         }
 
         dataset_info = client.get_dataset(dataset["id"])
-        existing_metrics = dataset_info["result"]["metrics"]
+        existing_metrics = dataset_info["metrics"]
         metric_keys = ['d3format',
                        'description',
                        'expression',

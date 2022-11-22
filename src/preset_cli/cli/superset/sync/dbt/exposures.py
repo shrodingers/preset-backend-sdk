@@ -142,7 +142,7 @@ def sync_exposures(  # pylint: disable=too-many-locals
             else "low",
             "url": str(client.baseurl / dashboard["url"].lstrip("/")),
             "description": "",
-            "id": chart_id,
+            "meta": { "id": chart_id },
             "depends_on": get_dashboard_depends_on(client, dashboard, model_map),
             "owner": {
                 "name": first_owner["first_name"] + " " + first_owner["last_name"],
