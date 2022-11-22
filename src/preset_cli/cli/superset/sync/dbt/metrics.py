@@ -22,11 +22,18 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
         raise Exception(f"Invalid metric {metric_name}")
 
     metric = metrics[metric_name]
-    type_ = metric["type"]
-    sql = metric["sql"]
+
+    version = metric["version"]
+
+    if version < "1.3.0":
+        calculation_method = metric["type"]
+        expression = metric["sql"]
+    else:
+        calculation_method = metric["calculation_method"]
+        expression = metric["expression"]
 
     if metric.get("filters"):
-        sql = apply_filters(sql, metric["filters"])
+        expression = apply_filters(expression, metric["filters"])
 
     simple_mappings = {
         "count": "COUNT",
@@ -36,15 +43,15 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
         "max": "MAX",
     }
 
-    if type_ in simple_mappings:
-        function = simple_mappings[type_]
-        return f"{function}({sql})"
+    if calculation_method in simple_mappings:
+        function = simple_mappings[calculation_method]
+        return f"{function}({expression})"
 
-    if type_ == "count_distinct":
-        return f"COUNT(DISTINCT {sql})"
+    if calculation_method == "count_distinct":
+        return f"COUNT(DISTINCT {expression})"
 
-    if type_ == "expression":
-        template = Template(sql)
+    if calculation_method in ["derived", "expression"]:
+        template = Template(expression)
         return template.render(metric=partial(get_metric_expression, metrics=metrics))
 
     sorted_metric = dict(sorted(metric.items()))

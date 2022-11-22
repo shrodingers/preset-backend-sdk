@@ -47,7 +47,7 @@ def create_dataset(
         kwargs = {
             "database": database["id"],
             "schema": model["schema"],
-            "table_name": model["name"],
+            "table_name": model["alias"] or model["name"],
         }
     else:
         engine = create_engine(url)
@@ -57,7 +57,7 @@ def create_dataset(
         kwargs = {
             "database": database["id"],
             "schema": model["schema"],
-            "table_name": model["name"],
+            "table_name": model["alias"] or model["name"],
             "sql": f"SELECT * FROM {source}",
         }
 
@@ -110,7 +110,6 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
 
         dataset_info = client.get_dataset(dataset["id"])
         existing_metrics = dataset_info["result"]["metrics"]
-        print(existing_metrics)
         metric_keys = ['d3format',
                        'description',
                        'expression',

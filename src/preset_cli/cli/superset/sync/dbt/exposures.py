@@ -97,6 +97,7 @@ def sync_exposures(  # pylint: disable=too-many-locals
             ),
             "description": chart["description"] or "",
             "depends_on": get_chart_depends_on(client, chart),
+            "id": chart_id,
             "owner": {
                 "name": first_owner["first_name"] + " " + first_owner["last_name"],
                 "email": first_owner.get("email", "unknown"),
@@ -116,6 +117,7 @@ def sync_exposures(  # pylint: disable=too-many-locals
             "url": str(client.baseurl / dashboard["url"].lstrip("/")),
             "description": "",
             "depends_on": get_dashboard_depends_on(client, dashboard),
+            "id": chart_id,
             "owner": {
                 "name": first_owner["first_name"] + " " + first_owner["last_name"],
                 "email": first_owner.get("email", "unknown"),

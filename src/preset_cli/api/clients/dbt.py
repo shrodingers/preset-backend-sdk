@@ -42,7 +42,6 @@ class PostelSchema(Schema):
 
         unknown = INCLUDE
 
-
 def PostelEnumField(enum: Type[Enum], *args: Any, **kwargs: Any) -> fields.Field:
     """
     Lenient replacement for ``EnumField``.
@@ -58,6 +57,8 @@ def PostelEnumField(enum: Type[Enum], *args: Any, **kwargs: Any) -> fields.Field
 
     return fields.Raw(*args, **kwargs)
 
+class VersionnedSchema(Schema):
+    version = fields.String()
 
 class DBTAccountPlan(str, Enum):
     """
@@ -547,20 +548,25 @@ class FilterSchema(PostelSchema):
     value = fields.String()
 
 
-class MetricSchema(PostelSchema):
+class MetricSchema(PostelSchema, VersionnedSchema):
     """
     Schema for a metric.
     """
-
+    
     depends_on = fields.List(fields.String(), data_key="dependsOn")
     description = fields.String()
     filters = fields.List(fields.Nested(FilterSchema))
     meta = fields.Raw()
     name = fields.String()
     label = fields.String()
-    sql = fields.String()
-    type = fields.String()
     unique_id = fields.String(data_key="uniqueId")
+    if super().version < "1.3.0":
+        sql = fields.String()
+        type = fields.String()
+    else:
+        expression = fields.String()
+        calculation_method = fields.String()
+
 
 
 class DataResponse(TypedDict):

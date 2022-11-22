@@ -132,6 +132,7 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
     with open(manifest, encoding="utf-8") as input_:
         configs = yaml.load(input_, Loader=yaml.SafeLoader)
 
+    version = configs["metadata"]["version"]
     model_schema = ModelSchema()
     models = []
     for config in configs["nodes"].values():
@@ -148,6 +149,7 @@ def dbt_core(  # pylint: disable=too-many-arguments, too-many-locals
         # conform to the same schema that dbt Cloud uses for metrics
         config["dependsOn"] = config["depends_on"]["nodes"]
         config["uniqueID"] = config["unique_id"]
+        config["version"] = version
         metrics.append(metric_schema.load(config, unknown=EXCLUDE))
 
     datasets = sync_datasets(
