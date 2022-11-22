@@ -311,11 +311,7 @@ def filter_models(models: List[ModelSchema], condition: str) -> List[ModelSchema
     if condition.startswith("@"):
         return filter_at_operator(models, condition)
 
-    raise NotImplementedError(
-        f"Unable to parse the selection {condition}. Please file an issue at "
-        "https://github.com/preset-io/backend-sdk/issues/new?labels=enhancement&"
-        f"title=dbt+select+{condition}.",
-    )
+    return []
 
 
 def filter_plus_operator(
