@@ -533,6 +533,7 @@ class ModelSchema(PostelSchema):
     description = fields.String()
     meta = fields.Raw()
     name = fields.String()
+    alias = fields.String()
     unique_id = fields.String(data_key="uniqueId")
     tags = fields.List(fields.String())
     columns = fields.Raw()
