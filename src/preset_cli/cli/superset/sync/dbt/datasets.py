@@ -131,7 +131,8 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
                 {
                     "expression": get_metric_expression(name, model_metrics),
                     "metric_name": name,
-                    "metric_type": metric["type"],
+                    "metric_type": metric.get("type")  # dbt < 1.3
+                        or metric.get("calculation_method"),  # dbt >= 1.3
                     "verbose_name": metric.get("label", name),
                     "description": metric.get("description", ""),
                     "extra": json.dumps(meta),
