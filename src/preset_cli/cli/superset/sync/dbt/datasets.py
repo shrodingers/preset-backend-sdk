@@ -118,12 +118,13 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
                        'metric_type',
                        'verbose_name',
                        'warning_text']
-        dataset_metrics = [{key: value for key, value in metric.items() if key in metric_keys} for metric in existing_metrics if metric["metric_name"] != 'count'] if existing_metrics else []
         model_metrics = {
             metric["name"]: metric
             for metric in metrics
             if model["unique_id"] in metric["depends_on"]
         }
+        model_metrics_names = [dbt_metric["name"] for dbt_metric in metrics]
+        dataset_metrics = [{key: value for key, value in metric.items() if key in metric_keys} for metric in existing_metrics if metric["metric_name"] != 'count' and metric["metric_name"] not in model_metrics_names] if existing_metrics else []
         for name, metric in model_metrics.items():
             meta = metric.get("meta", {})
             kwargs = meta.pop("superset", {})
