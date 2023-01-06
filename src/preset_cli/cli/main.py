@@ -16,6 +16,7 @@ from yarl import URL
 from preset_cli.api.clients.preset import PresetClient
 from preset_cli.api.clients.superset import SupersetClient
 from preset_cli.auth.jwt import JWTAuth
+from preset_cli.auth.password import UsernamePasswordAuth
 from preset_cli.auth.lib import get_credentials_path, store_credentials
 from preset_cli.auth.preset import JWTTokenError, PresetAuth
 from preset_cli.cli.superset.main import superset
@@ -95,6 +96,8 @@ workspace_role_identifiers = {
 @click.option("--api-token", envvar="PRESET_API_TOKEN")
 @click.option("--api-secret", envvar="PRESET_API_SECRET")
 @click.option("--jwt-token", envvar="PRESET_JWT_TOKEN")
+@click.option("--username", envvar="SUPERSET_USERNAME")
+@click.option("--password", envvar="SUPERSET_PASSWORD")
 @click.option("--workspaces", envvar="PRESET_WORKSPACES", callback=split_comma)
 @click.option("--loglevel", default="INFO")
 @click.version_option()
@@ -105,6 +108,8 @@ def preset_cli(  # pylint: disable=too-many-branches, too-many-locals, too-many-
     api_token: Optional[str],
     api_secret: Optional[str],
     jwt_token: Optional[str],
+    username: Optional[str],
+    password: Optional[str],
     workspaces: List[str],
     loglevel: str,
 ) -> None:
@@ -124,6 +129,8 @@ def preset_cli(  # pylint: disable=too-many-branches, too-many-locals, too-many-
 
     if jwt_token:
         ctx.obj["AUTH"] = JWTAuth(jwt_token)
+    if username and password and not workspaces:
+        ctx.obj["AUTH"] = UsernamePasswordAuth(baseurl=manager_api_url, username=username, password=password)
     else:
         if api_token is None or api_secret is None:
             # check for stored credentials
@@ -171,7 +178,7 @@ def preset_cli(  # pylint: disable=too-many-branches, too-many-locals, too-many-
             )
             sys.exit(1)
 
-    if not workspaces and ctx.invoked_subcommand == "superset" and not is_help():
+    if not workspaces and ctx.invoked_subcommand == "superset" and not is_help() and not username:
         client = PresetClient(ctx.obj["MANAGER_URL"], ctx.obj["AUTH"])
         click.echo("Choose one or more workspaces (eg: 1-3,5,8-):")
         i = 0

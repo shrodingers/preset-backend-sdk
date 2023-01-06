@@ -19,28 +19,34 @@ class UsernamePasswordAuth(Auth):  # pylint: disable=too-few-public-methods
         super().__init__()
 
         self.csrf_token: Optional[str] = None
+        self.access_token: Optional[str] = None
+        self.refresh_token: Optional[str] = None
         self.baseurl = baseurl
         self.username = username
         self.password = password
         self.auth()
 
     def get_headers(self) -> Dict[str, str]:
-        return {"X-CSRFToken": self.csrf_token} if self.csrf_token else {}
+        headers = {"X-CSRFToken": self.csrf_token} if self.csrf_token else {}
+        headers.update({ "Authorization": f"Bearer {self.access_token}" }) if self.access_token else {}
+        return headers
 
     def auth(self) -> None:
         """
         Login to get CSRF token and cookies.
         """
-        data = {"username": self.username, "password": self.password}
+        data = {"username": self.username, "password": self.password, "provider": "db", }
 
-        response = self.session.get(self.baseurl / "login/")
-        soup = BeautifulSoup(response.text, "html.parser")
-        input_ = soup.find("input", {"id": "csrf_token"})
-        csrf_token = input_["value"] if input_ else None
+        response = self.session.get(self.baseurl / "api/v1/security/csrf_token")
+        #soup = BeautifulSoup(response.text, "html.parser")
+        input_ = response.json()
+        csrf_token = input_["result"] if input_ else None
         if csrf_token:
             self.session.headers["X-CSRFToken"] = csrf_token
-            data["csrf_token"] = csrf_token
+            #data["csrf_token"] = csrf_token
             self.csrf_token = csrf_token
-
         # set cookies
-        self.session.post(self.baseurl / "login/", data=data)
+        response = self.session.post(self.baseurl / "api/v1/security/login", json=data)
+        self.access_token = response.json().get('access_token')
+        self.refresh_token = response.json().get('refresh_token')
+        self.session.headers["Authorization"] = f"Bearer {self.access_token}"

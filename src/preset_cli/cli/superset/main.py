@@ -112,7 +112,13 @@ def mutate_commands(source: click.core.Group, target: click.core.Group) -> None:
             def new_command(
                 ctx: click.core.Context, *args: Any, command=command, **kwargs: Any
             ) -> None:
-                for instance in ctx.obj["WORKSPACES"]:
+                if ctx.obj["WORKSPACES"]:
+                    for instance in ctx.obj["WORKSPACES"]:
+                        click.echo(f"\n{instance}")
+                        ctx.obj["INSTANCE"] = instance
+                        ctx.invoke(command, *args, **kwargs)
+                else:
+                    instance = ctx.obj["MANAGER_URL"]
                     click.echo(f"\n{instance}")
                     ctx.obj["INSTANCE"] = instance
                     ctx.invoke(command, *args, **kwargs)
