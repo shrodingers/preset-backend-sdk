@@ -37,16 +37,17 @@ class UsernamePasswordAuth(Auth):  # pylint: disable=too-few-public-methods
         """
         data = {"username": self.username, "password": self.password, "provider": "db", }
 
-        response = self.session.get(self.baseurl / "api/v1/security/csrf_token")
         #soup = BeautifulSoup(response.text, "html.parser")
+        # set cookies
+        response = self.session.post(self.baseurl / "api/v1/security/login", json=data)
+        print(response.json())
+        self.access_token = response.json().get('access_token')
+        self.refresh_token = response.json().get('refresh_token')
+        self.session.headers["Authorization"] = f"Bearer {self.access_token}"
+        response = self.session.get(self.baseurl / "api/v1/security/csrf_token")
         input_ = response.json()
         csrf_token = input_["result"] if input_ else None
         if csrf_token:
             self.session.headers["X-CSRFToken"] = csrf_token
             #data["csrf_token"] = csrf_token
             self.csrf_token = csrf_token
-        # set cookies
-        response = self.session.post(self.baseurl / "api/v1/security/login", json=data)
-        self.access_token = response.json().get('access_token')
-        self.refresh_token = response.json().get('refresh_token')
-        self.session.headers["Authorization"] = f"Bearer {self.access_token}"
