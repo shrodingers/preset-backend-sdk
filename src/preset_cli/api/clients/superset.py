@@ -465,7 +465,7 @@ class SupersetClient:  # pylint: disable=too-many-public-methods
         url = self.baseurl / "api/v1" / resource_name / str(resource_id)
         if query_args:
             url %= query_args
-
+        print(url, kwargs)
         response = self.session.put(url, json=kwargs)
         validate_response(response)
 

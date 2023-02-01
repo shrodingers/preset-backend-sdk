@@ -57,7 +57,7 @@ def build_postgres_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
     query = {"sslmode": target["sslmode"]} if "sslmode" in target else None
 
     return {
-        "sqlalchemy_uri": str(
+        "sqlalchemy_uri": 
             URL(
                 drivername="postgresql+psycopg2",
                 username=username,
@@ -66,8 +66,7 @@ def build_postgres_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
                 port=port,
                 database=dbname,
                 query=query,
-            ),
-        ),
+            ).render_as_string(False)
     }
 
 
