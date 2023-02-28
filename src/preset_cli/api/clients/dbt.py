@@ -553,7 +553,7 @@ class MetricSchema(PostelSchema, VersionnedSchema):
     """
     Schema for a metric.
     """
-    
+
     depends_on = fields.List(fields.String(), data_key="dependsOn")
     description = fields.String()
     filters = fields.List(fields.Nested(FilterSchema))
@@ -563,6 +563,7 @@ class MetricSchema(PostelSchema, VersionnedSchema):
     unique_id = fields.String(data_key="uniqueId")
     expression = fields.String()
     calculation_method = fields.String()
+    metrics = fields.List(fields.List(fields.String()))
 
 
 
