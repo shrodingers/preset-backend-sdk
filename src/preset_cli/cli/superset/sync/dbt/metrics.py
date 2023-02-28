@@ -36,7 +36,7 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
 
     if calculation_method in simple_mappings:
         function = simple_mappings[calculation_method]
-        return f"{function}({expression})"
+        return f"COALESCE({function}({expression}), 0)"
 
     if calculation_method == "count_distinct":
         return f"COUNT(DISTINCT {expression})"
