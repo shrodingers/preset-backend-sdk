@@ -6,10 +6,7 @@ This module is used to convert dbt metrics into Superset metrics.
 
 # pylint: disable=consider-using-f-string
 
-from functools import partial
 from typing import Dict, List
-
-from jinja2 import Template
 
 from preset_cli.api.clients.dbt import FilterSchema, MetricSchema
 
@@ -45,8 +42,14 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
         return f"COUNT(DISTINCT {expression})"
 
     if calculation_method in ["derived", "expression"]:
-        template = Template(expression)
-        return template.render(metric=partial(get_metric_expression, metrics=metrics))
+        deps = [
+            {"name": name, "expression": get_metric_expression(name, metrics)}
+            for unnest_1 in metric["metrics"]
+            for name in unnest_1
+        ]
+        for child in deps:
+            expression = expression.replace(child["name"], child["expression"])
+        return expression
 
     sorted_metric = dict(sorted(metric.items()))
     raise Exception(f"Unable to generate metric expression from: {sorted_metric}")
