@@ -125,10 +125,30 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
             "verbose_name",
             "warning_text",
         ]
+
+        def get_deps_metrics(metric):
+            metrics_len = len(metric["metrics"]) or 0
+            if metrics_len > 0:
+                result = [
+                    get_deps_metrics(
+                        [
+                            metric_value
+                            for metric_value in metrics
+                            if metric_value["name"] == real_metric
+                        ][0]
+                    )
+                    for sub_metric in metric.get("metrics")
+                    for real_metric in sub_metric
+                ]
+                return metric.get("depends_on") + [
+                    elem for all in result for elem in all
+                ]
+            return metric.get("depends_on")
+
         model_metrics = {
             metric["name"]: metric
             for metric in metrics
-            if model["unique_id"] in metric["depends_on"]
+            if model["unique_id"] in get_deps_metrics(metric)
         }
         model_metrics_names = [dbt_metric["name"] for dbt_metric in metrics]
         dataset_metrics = (
