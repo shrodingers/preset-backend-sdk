@@ -81,10 +81,16 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
     for model in models:
         filters = {
             "database": OneToMany(database["id"]),
-            "schema": model["schema"],
             "table_name": model.get("alias") or model["name"],
         }
         existing = client.get_datasets(**filters)
+        if len(existing) > 1:
+            unique_id = model["unique_id"]
+            existing = [
+                item
+                for item in existing
+                if unique_id == json.loads(item["extra"])["unique_id"]
+            ]
         if len(existing) > 1:
             raise Exception("More than one dataset found")
 
@@ -174,6 +180,7 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
         # update dataset clearing metrics...
         update = {
             "description": model.get("description", ""),
+            "schema": model["schema"],
             "extra": json.dumps(extra),
             "is_managed_externally": disallow_edits,
             "metrics": [],
