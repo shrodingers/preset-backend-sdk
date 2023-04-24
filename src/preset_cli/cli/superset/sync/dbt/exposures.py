@@ -56,7 +56,8 @@ def get_dashboard_depends_on(
     Get all the dbt dependencies for a given dashboard.
     """
 
-    url = client.baseurl / "api/v1/dashboard" / str(dashboard["id"]) / "datasets"
+    url = client.baseurl / "api/v1/dashboard" / \
+        str(dashboard["id"]) / "datasets"
 
     session = client.auth.session
     headers = client.auth.get_headers()
@@ -96,7 +97,8 @@ def sync_exposures(  # pylint: disable=too-many-locals
     dashboards_ids = set()
 
     for dataset in datasets:
-        url = client.baseurl / "api/v1/dataset" / str(dataset["id"]) / "related_objects"
+        url = client.baseurl / "api/v1/dataset" / \
+            str(dataset["id"]) / "related_objects"
 
         session = client.auth.session
         headers = client.auth.get_headers()
@@ -111,7 +113,8 @@ def sync_exposures(  # pylint: disable=too-many-locals
 
     for chart_id in charts_ids:
         chart = client.get_chart(chart_id)
-        first_owner = chart["owners"][0]
+        first_owner = chart["owners"][0] if len(chart["owners"]) else {
+            "first_name": "Unknown", "last_name": "Owner"}
         exposure = {
             "name": chart["slice_name"] + " [chart]",
             "type": "analysis",
@@ -122,7 +125,7 @@ def sync_exposures(  # pylint: disable=too-many-locals
                 % {"form_data": json.dumps({"slice_id": chart_id})},
             ),
             "description": chart["description"] or "",
-            "meta": { "id": chart_id },
+            "meta": {"id": chart_id},
             "depends_on": get_chart_depends_on(client, chart, model_map),
             "owner": {
                 "name": first_owner["first_name"] + " " + first_owner["last_name"],
@@ -133,7 +136,8 @@ def sync_exposures(  # pylint: disable=too-many-locals
 
     for dashboard_id in dashboards_ids:
         dashboard = client.get_dashboard(dashboard_id)
-        first_owner = dashboard["owners"][0]
+        first_owner = dashboard["owners"][0] if len(dashboard["owners"]) else {
+            "first_name": "Unknown", "last_name": "Owner"}
         exposure = {
             "name": dashboard["dashboard_title"] + " [dashboard]",
             "type": "dashboard",
@@ -142,7 +146,7 @@ def sync_exposures(  # pylint: disable=too-many-locals
             else "low",
             "url": str(client.baseurl / dashboard["url"].lstrip("/")),
             "description": "",
-            "meta": { "id": f"d_{dashboard_id}" },
+            "meta": {"id": f"d_{dashboard_id}"},
             "depends_on": get_dashboard_depends_on(client, dashboard, model_map),
             "owner": {
                 "name": first_owner["first_name"] + " " + first_owner["last_name"],
@@ -152,4 +156,5 @@ def sync_exposures(  # pylint: disable=too-many-locals
         exposures.append(exposure)
 
     with open(exposures_path, "w", encoding="utf-8") as output:
-        yaml.safe_dump({"version": 2, "exposures": exposures}, output, sort_keys=False)
+        yaml.safe_dump({"version": 2, "exposures": exposures},
+                       output, sort_keys=False)
