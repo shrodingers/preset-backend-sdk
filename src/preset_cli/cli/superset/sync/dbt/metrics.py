@@ -51,6 +51,9 @@ def get_metric_expression(metric_name: str, metrics: Dict[str, MetricSchema]) ->
             expression = expression.replace(child["name"], child["expression"])
         return expression
 
+    if calculation_method == "median":
+        return f"COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {expression} ASC), 0)"
+
     sorted_metric = dict(sorted(metric.items()))
     raise Exception(f"Unable to generate metric expression from: {sorted_metric}")
 
