@@ -206,7 +206,7 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
     Build the SQLAlchemy URI for a Snowflake target.
     """
     token = target.get("token", "") or None
-    database = target["database"]
+    database = target.get("catalog", target.get("database", ""))
     host = target["host"]
     path = target["http_path"]
 
@@ -233,7 +233,7 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
     return parameters
 
 
-def env_var(var: str, default: Optional[str]=None) -> str:
+def env_var(var: str, default: Optional[str] = None) -> str:
     """
     Simplified version of dbt's ``env_var``.
 
@@ -271,31 +271,33 @@ def load_profiles(
     project_name: str,
     profile_name: str,
     target_name: Optional[str],
+
+
 ) -> Dict[str, Any]:
     """
     Load the file and apply Jinja2 templating.
     """
-    with open(path, encoding="utf-8") as input_:
-        profiles = yaml.load(input_, Loader=yaml.SafeLoader)
+    with open(path, encoding = "utf-8") as input_:
+        profiles=yaml.load(input_, Loader = yaml.SafeLoader)
 
     if profile_name not in profiles:
         raise Exception(f"Project {profile_name} not found in {path}")
-    project = profiles[profile_name]
-    outputs = project["outputs"]
+    project=profiles[profile_name]
+    outputs=project["outputs"]
     if target_name is None:
-        target_name = project["target"]
+        target_name=project["target"]
     if target_name not in outputs:
         raise Exception(
             f"Target {target_name} not found in the outputs of {path}")
-    target = outputs[target_name]
+    target=outputs[target_name]
 
-    env = Environment()
-    env.filters["as_bool"] = bool
-    env.filters["as_native"] = ast.literal_eval
-    env.filters["as_number"] = as_number
-    env.filters["as_text"] = str
+    env=Environment()
+    env.filters["as_bool"]=bool
+    env.filters["as_native"]=ast.literal_eval
+    env.filters["as_number"]=as_number
+    env.filters["as_text"]=str
 
-    context = {
+    context={
         "env_var": env_var,
         "project_name": project_name,
         "profile_name": profile_name,
