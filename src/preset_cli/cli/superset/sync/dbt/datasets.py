@@ -52,8 +52,7 @@ def create_dataset(
     else:
         engine = create_engine(url)
         quote = engine.dialect.identifier_preparer.quote
-        source = ".".join(quote(model[key])
-                          for key in ("database", "schema", "alias"))
+        source = ".".join(quote(model[key]) for key in ("database", "schema", "alias"))
         kwargs = {
             "database": database["id"],
             "schema": model["schema"],
@@ -82,10 +81,16 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
     for model in models:
         filters = {
             "database": OneToMany(database["id"]),
-            "schema": model["schema"],
             "table_name": model.get("alias") or model["name"],
         }
         existing = client.get_datasets(**filters)
+        if len(existing) > 1:
+            unique_id = model["unique_id"]
+            existing = [
+                item
+                for item in existing
+                if unique_id == json.loads(item["extra"])["unique_id"]
+            ]
         if len(existing) > 1:
             raise Exception("More than one dataset found")
 
@@ -110,21 +115,52 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
 
         dataset_info = client.get_dataset(dataset["id"])
         existing_metrics = dataset_info["metrics"]
-        metric_keys = ['d3format',
-                       'description',
-                       'expression',
-                       'extra',
-                       'metric_name',
-                       'metric_type',
-                       'verbose_name',
-                       'warning_text']
+        metric_keys = [
+            "d3format",
+            "description",
+            "expression",
+            "extra",
+            "metric_name",
+            "metric_type",
+            "verbose_name",
+            "warning_text",
+        ]
+
+        def get_deps_metrics(metric):
+            metrics_len = len(metric["metrics"]) or 0
+            if metrics_len > 0:
+                result = [
+                    get_deps_metrics(
+                        [
+                            metric_value
+                            for metric_value in metrics
+                            if metric_value["name"] == real_metric
+                        ][0]
+                    )
+                    for sub_metric in metric.get("metrics")
+                    for real_metric in sub_metric
+                ]
+                return metric.get("depends_on") + [
+                    elem for all in result for elem in all
+                ]
+            return metric.get("depends_on")
+
         model_metrics = {
             metric["name"]: metric
             for metric in metrics
-            if model["unique_id"] in metric["depends_on"]
+            if model["unique_id"] in get_deps_metrics(metric)
         }
         model_metrics_names = [dbt_metric["name"] for dbt_metric in metrics]
-        dataset_metrics = [{key: value for key, value in metric.items() if key in metric_keys} for metric in existing_metrics if metric["metric_name"] != 'count' and metric["metric_name"] not in model_metrics_names] if existing_metrics else []
+        dataset_metrics = (
+            [
+                {key: value for key, value in metric.items() if key in metric_keys}
+                for metric in existing_metrics
+                if metric["metric_name"] != "count"
+                and metric["metric_name"] not in model_metrics_names
+            ]
+            if existing_metrics
+            else []
+        )
         for name, metric in model_metrics.items():
             meta = metric.get("meta", {})
             kwargs = meta.pop("superset", {})
@@ -133,7 +169,7 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
                     "expression": get_metric_expression(name, model_metrics),
                     "metric_name": name,
                     "metric_type": metric.get("type")  # dbt < 1.3
-                        or metric.get("calculation_method"),  # dbt >= 1.3
+                    or metric.get("calculation_method"),  # dbt >= 1.3
                     "verbose_name": metric.get("label", name),
                     "description": metric.get("description", ""),
                     "extra": json.dumps(meta),
@@ -144,6 +180,7 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
         # update dataset clearing metrics...
         update = {
             "description": model.get("description", ""),
+            "schema": model["schema"],
             "extra": json.dumps(extra),
             "is_managed_externally": disallow_edits,
             "metrics": [],
@@ -159,20 +196,25 @@ def sync_datasets(  # pylint: disable=too-many-locals, too-many-branches, too-ma
             update = {
                 "metrics": dataset_metrics,
             }
-            client.update_dataset(
-                dataset["id"], override_columns=False, **update)
+            client.update_dataset(dataset["id"], override_columns=False, **update)
 
         # update column descriptions
         update = {
             "columns": [
-                {"column_name": name, "description": column.get("description", ""), "is_dttm": column["data_type"] == "timestamp" if not column.get(
-                    "meta", {}).get("superset", {}).get("is_dttm", False) else False}
+                {
+                    "column_name": name,
+                    "description": column.get("description", ""),
+                    "is_dttm": column["data_type"] == "timestamp"
+                    if not column.get("meta", {})
+                    .get("superset", {})
+                    .get("is_dttm", False)
+                    else False,
+                }
                 for name, column in model.get("columns", {}).items()
             ],
         }
         if update["columns"]:
-            client.update_dataset(
-                dataset["id"], override_columns=True, **update)
+            client.update_dataset(dataset["id"], override_columns=True, **update)
 
         datasets.append(dataset)
 
