@@ -33,6 +33,8 @@ def build_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
         return build_bigquery_sqlalchemy_params(target)
     if type_ == "snowflake":
         return build_snowflake_sqlalchemy_params(target)
+    if type_ == "databricks":
+        return build_databricks_sqlalchemy_params(target)
 
     raise NotImplementedError(
         f"Unable to build a SQLAlchemy URI for a target of type {type_}. Please file an "
@@ -46,7 +48,8 @@ def build_postgres_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
     Build the SQLAlchemy URI for a Postgres target.
     """
     if "search_path" in target:
-        _logger.warning("Specifying a search path is not supported in Apache Superset")
+        _logger.warning(
+            "Specifying a search path is not supported in Apache Superset")
 
     username = target["user"]
     password = target.get("password") or target.get("pass")
@@ -57,7 +60,7 @@ def build_postgres_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
     query = {"sslmode": target["sslmode"]} if "sslmode" in target else None
 
     return {
-        "sqlalchemy_uri": 
+        "sqlalchemy_uri":
             URL(
                 drivername="postgresql+psycopg2",
                 username=username,
@@ -75,7 +78,8 @@ def build_redshift_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
     Build the SQLAlchemy URI for a Redshift target.
     """
     if "search_path" in target:
-        _logger.warning("Specifying a search path is not supported in Apache Superset")
+        _logger.warning(
+            "Specifying a search path is not supported in Apache Superset")
 
     username = target["user"]
     password = target.get("password") or target.get("pass")
@@ -197,6 +201,37 @@ def build_snowflake_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
     return parameters
 
 
+def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build the SQLAlchemy URI for a Snowflake target.
+    """
+    token = target.get("token", "") or None
+    database = target.get("catalog", target.get("database", ""))
+    host = target["host"]
+    path = target["http_path"]
+
+    parameters = {
+        "sqlalchemy_uri": str(
+            URL(
+                drivername="databricks+connector",
+                username="token",
+                password=token,
+                host=host
+            ),
+        ),
+    }
+
+    parameters["extra"] = json.dumps(
+        {
+            "engine_params": {
+                "connect_args": {"http_path": path, "database": database}
+            },
+        },
+    )
+
+    return parameters
+
+
 def env_var(var: str, default: Optional[str] = None) -> str:
     """
     Simplified version of dbt's ``env_var``.
@@ -235,30 +270,33 @@ def load_profiles(
     project_name: str,
     profile_name: str,
     target_name: Optional[str],
+
+
 ) -> Dict[str, Any]:
     """
     Load the file and apply Jinja2 templating.
     """
-    with open(path, encoding="utf-8") as input_:
-        profiles = yaml.load(input_, Loader=yaml.SafeLoader)
+    with open(path, encoding = "utf-8") as input_:
+        profiles=yaml.load(input_, Loader = yaml.SafeLoader)
 
     if profile_name not in profiles:
         raise Exception(f"Project {profile_name} not found in {path}")
-    project = profiles[profile_name]
-    outputs = project["outputs"]
+    project=profiles[profile_name]
+    outputs=project["outputs"]
     if target_name is None:
-        target_name = project["target"]
+        target_name=project["target"]
     if target_name not in outputs:
-        raise Exception(f"Target {target_name} not found in the outputs of {path}")
-    target = outputs[target_name]
+        raise Exception(
+            f"Target {target_name} not found in the outputs of {path}")
+    target=outputs[target_name]
 
-    env = Environment()
-    env.filters["as_bool"] = bool
-    env.filters["as_native"] = ast.literal_eval
-    env.filters["as_number"] = as_number
-    env.filters["as_text"] = str
+    env=Environment()
+    env.filters["as_bool"]=bool
+    env.filters["as_native"]=ast.literal_eval
+    env.filters["as_number"]=as_number
+    env.filters["as_text"]=str
 
-    context = {
+    context={
         "env_var": env_var,
         "project_name": project_name,
         "profile_name": profile_name,
@@ -276,7 +314,8 @@ def load_profiles(
             config = [apply_templating(el) for el in config]
         elif isinstance(config, str):
             template = env.from_string(config)
-            config = yaml.load(template.render(**context), Loader=yaml.SafeLoader)
+            config = yaml.load(template.render(
+                **context), Loader=yaml.SafeLoader)
 
         return config
 
@@ -415,7 +454,8 @@ def apply_select(
         for selection in select:
             ids = set.intersection(
                 *[
-                    {model["unique_id"] for model in filter_models(models, condition)}
+                    {model["unique_id"]
+                        for model in filter_models(models, condition)}
                     for condition in selection.split(",")
                 ]
             )
@@ -424,7 +464,8 @@ def apply_select(
     for selection in exclude:
         for id_ in set.intersection(
             *[
-                {model["unique_id"] for model in filter_models(models, condition)}
+                {model["unique_id"]
+                    for model in filter_models(models, condition)}
                 for condition in selection.split(",")
             ]
         ):
