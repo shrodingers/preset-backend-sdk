@@ -216,8 +216,7 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
                 drivername="databricks+connector",
                 username="token",
                 password=token,
-                host=host,
-                database=database,
+                host=host
             ),
         ),
     }
@@ -225,7 +224,7 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
     parameters["extra"] = json.dumps(
         {
             "engine_params": {
-                "connect_args": {"http_path": path}
+                "connect_args": {"http_path": path, "database": database}
             },
         },
     )
