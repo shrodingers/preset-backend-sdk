@@ -216,7 +216,8 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
                 drivername="databricks+connector",
                 username="token",
                 password=token,
-                host=host
+                host=host,
+                database=database
             ),
         ),
     }

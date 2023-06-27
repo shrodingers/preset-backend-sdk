@@ -27,7 +27,6 @@ def model_in_database(model: ModelSchema, url: SQLAlchemyURL) -> bool:
     """
     if url.drivername == "bigquery":
         return model["database"] == url.host
-
     return model["database"] == url.database
 
 
