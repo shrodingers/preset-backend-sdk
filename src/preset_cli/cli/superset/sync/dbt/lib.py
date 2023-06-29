@@ -225,7 +225,7 @@ def build_databricks_sqlalchemy_params(target: Dict[str, Any]) -> Dict[str, Any]
     parameters["extra"] = json.dumps(
         {
             "engine_params": {
-                "connect_args": {"http_path": path, "database": database}
+                "connect_args": {"http_path": path, "catalog": database}
             },
         },
     )
